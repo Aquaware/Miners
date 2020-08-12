@@ -65,10 +65,10 @@ class CandleChart:
     
     def plotOHLC(self, ohlc, bar_width = 1.0):
         #time = mdates.date2num(tohlc[0])
-        rows = ohlc.shape[0]
+        n = len(self.time)
         data = []
-        for row in range(rows):
-            data.append([self.time[row], ohlc[row, 0], ohlc[row, 1], ohlc[row, 2], ohlc[row, 3]])
+        for i in range(n):
+            data.append([self.time[i], ohlc[0][i], ohlc[1][i], ohlc[2][i], ohlc[3][i]])
             
         w = self.length / 50000 * bar_width
         candlestick_ohlc(self.ax, data, width=w, colorup=self.color_up, colordown=self.color_down)
