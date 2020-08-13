@@ -5,49 +5,61 @@ import numpy as np
 import pandas as pd
 
 
+TIME = 'time'
 OHLC = ['open', 'high', 'low', 'close'] 
 OHLCV = ['open', 'high', 'low', 'close', 'volume']
 PV = ['price', 'volume']
 
+DATA_TYPE_PANDAS = 0
+DATA_TYPE_XM = 1
+
 class TimeSeries:
     
-    def __init__(self, time, values, names=OHLC):
-        self.time = []
-        for t in time:
-            self.time.append(toNaive(t))
+    def __init__(self, data, data_type, names=OHLC, index=None):
+        values = []
+        if data_type == DATA_TYPE_PANDAS:
+            time = []
+            time_list = list(data[TIME].values)
+            for t in time_list:
+                time.append(toNaive(t))
+                
+            for name in names:
+                values.append(list(data[name].values))
+        
+            dic = {}
+            for i in range(len(names)):
+                name = names[i]
+                dic[name] = values[i]
+        elif data_type == DATA_TYPE_XM:
+            time = []
+            for d in data:
+                time.append(toNaive(d[0]))
+            values = []
+            dic = {}
+            for name, i in zip(names, index):
+                value = []
+                for d in data:
+                    value.append(d[i])
+                values.append(value)
+                dic[name] = value
             
+        self.time = time
         self.values = values
+        self.dic = dic
         self.length = len(time)
         self.names = names
-        
-        if self.length > 0:
-            self.size = len(values)
-        else:
-            self.size = 0
-            
-        self.array = None
-        self.dic = {}
-        if self.size != len(names):
-            return
-
-        for i in range(len(names)):
-            name = names[i]
-            self.dic[name] = values[i]
-            
-        ary = np.zeros((self.length, self.size))
-        for r in range(self.length):
-            for c in range(self.size):
-                ary[r, c] = values[c][r]
-        self.array = ary
         return
     
     def toDataFrame(self):
         if len(self.names) < 4:
             return None
         data = []
-        for t, value in zip(self.time, self.values):
-            data.append([t, value[0], value[1], value[2], value[3]])
-        df = pd.DataFrame(data= data, columns= ['time'] + OHLC)
+        for i in range(len(self.time)):
+            v = [self.time[i]]
+            for name in self.names:
+                v.append(self.dic[name][i])
+            data.append(v)
+        df = pd.DataFrame(data= data, columns= ['time'] + self.names)
         return df
     
     def timeRangeFilter(self, begin_time, end_time):

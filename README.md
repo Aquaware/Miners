@@ -1,2 +1,2 @@
 # Miners
-AI Trading with Python
+Algorithm Trading with Python
