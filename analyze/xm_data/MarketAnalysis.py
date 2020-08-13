@@ -192,7 +192,7 @@ def xmAnalyze():
     time = toDatetimeList(timestr, '%Y/%m/%d %H:%M:%S')
     values = [list(df['Open']), list(df['High']), list(df['Low']), list(df['Close'])]
     timeseries = TimeSeries(time, values)
-    ts = timeseries.timeRangeFilter(None, datetime(2015, 12, 31))
+    ts = timeseries.timeRangeFilter(datetime(2012, 12, 1), datetime(2013, 6, 1))
     ana = MarketAnalysis(name, ts)
     ana.plot()
     print(adf(ts.dic['close']))

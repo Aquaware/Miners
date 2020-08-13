@@ -6,7 +6,8 @@ import pandas as pd
 
 
 OHLC = ['open', 'high', 'low', 'close'] 
-OHLCV = ['open', 'high', 'low', 'close', 'volume'] 
+OHLCV = ['open', 'high', 'low', 'close', 'volume']
+PV = ['price', 'volume']
 
 class TimeSeries:
     

@@ -43,8 +43,8 @@ class Graph:
         self.ax.set_ylabel(ylabel)
         pass
     
-    def scatter(self, x, y, color_index, line_width):
-        self.ax.scatter(x, y, c = color(color_index), lw = line_width)
+    def scatter(self, x, y, prop):
+        self.ax.scatter(x, y, c =  prop['color'], lw = prop['width'])
         pass
     
     def plot(self, x, y, prop):
