@@ -40,7 +40,6 @@ def style(index):
     style = lineStyle(int(index / 10))
     return [c, style]
 
-
 def toNaive(time_list):
     out = []
     for time in time_list:
@@ -52,6 +51,7 @@ class CandleChart:
     
     def __init__(self, ax, aware_pytime, time_label_type):
         self.ax = ax
+        self.twin_ax = ax.twinx()
         self.pytime = aware_pytime
         time_list = toNaive(aware_pytime)
         self.time = mdates.date2num(time_list)
@@ -61,6 +61,13 @@ class CandleChart:
         self.color_down = 'red'
         self.width = 0.002
         
+        #self.ax.grid()
+        #self.ax.xaxis_date()
+        #self.ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
+        pass
+    
+    def grid(self):
+        self.ax.grid()
         pass
     
     def plotOHLC(self, ohlc, bar_width = 1.0):
@@ -72,9 +79,6 @@ class CandleChart:
             
         w = self.length / 50000 * bar_width
         candlestick_ohlc(self.ax, data, width=w, colorup=self.color_up, colordown=self.color_down)
-        self.ax.grid()
-        self.ax.xaxis_date()
-        self.ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
         pass
     
     def setTitle(self, title, xlabel, ylabel):
@@ -90,6 +94,9 @@ class CandleChart:
     def plot(self, value, style_index, line_width):
         sty = style(style_index)
         self.ax.plot(self.time, value, color = sty[0], linestyle=sty[1], lw = line_width)
+        self.ax.grid()
+        self.ax.xaxis_date()
+        self.ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
         pass
     
     def box(self, xrange, yrange, color_index, alpha):
@@ -159,6 +166,21 @@ class CandleChart:
     def text(self, x, y, text, color, size):
         self.ax.text(x, y, text, color = color, size = size)
             
+    def bars(self, values, colors, limit, width):
+        if len(values) != self.length or len(colors) != self.length:
+            print('bars ... error')
+            return
+        for t, v, c in zip(self.time, values, colors):
+            self.bar(t, v, c, width)
+        self.twin_ax.set_ylim(0, limit)
+        return
+        
+    def bar(self, x, value, color, width):
+        self.twin_ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) 
+        self.twin_ax.grid()
+        self.twin_ax.xaxis_date()
+        self.twin_ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
+        return
     
 if __name__ == '__main__':
     brand = 'vix'

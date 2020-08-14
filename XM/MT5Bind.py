@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 import sys
-sys.path.append("../private")
-sys.path.append("../common")
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '../private'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
+
 
 import pandas as pd
 import MetaTrader5 as mt5

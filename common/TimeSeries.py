@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from CalendarTime import DTime, DeltaHour, DeltaDay, toNaive
+from CalendarTime import DTime, DeltaHour, DeltaDay, toNaive, toDateTimeList
 import numpy as np
 import pandas as pd
 
@@ -18,18 +18,12 @@ class TimeSeries:
     def __init__(self, data, data_type, names=OHLC, index=None):
         values = []
         if data_type == DATA_TYPE_PANDAS:
-            time = []
-            time_list = list(data[TIME].values)
-            for t in time_list:
-                time.append(toNaive(t))
-                
-            for name in names:
-                values.append(list(data[name].values))
-        
+            time = toDateTimeList(list(data[TIME].values))
             dic = {}
-            for i in range(len(names)):
-                name = names[i]
-                dic[name] = values[i]
+            values = []
+            for name in names:
+                dic[name] = data[name]
+                values.append(data[name])
         elif data_type == DATA_TYPE_XM:
             time = []
             for d in data:
@@ -49,6 +43,25 @@ class TimeSeries:
         self.length = len(time)
         self.names = names
         return
+    
+    def data(self, name):
+        return self.dic[name]
+    
+    def dataList(self, names):
+        out = []
+        for name in names:
+            out.append(self.dic[name])
+        return out
+    
+    def minmax(self, names):
+        mins = []
+        maxs = []
+        for name in names:
+            mins.append(self.dic[name])
+            maxs.append(self.dic[name])
+        return [np.min(mins), np.max(maxs)]
+    
+    
     
     def toDataFrame(self):
         if len(self.names) < 4:

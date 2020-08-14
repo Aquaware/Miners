@@ -22,7 +22,7 @@ def DTime(year, month, day, hour, minute):
     ja = timezone('Asia/Tokyo')
     return datetime.datetime(year, month, day, hour, minute, tzinfo=ja)
 
-def toNaive(time):
+def toAware(time):
     try:
         ja = timezone('Asia/Tokyo')
         t = ja.localize(time)
@@ -30,10 +30,28 @@ def toNaive(time):
     except:
         return time
     
-def toAware(naive_time):
-    t = datetime.datetime(naive_time.year, naive_time.month, naive_time.day, naive_time.hour, naive_time.minute, naive_time.second)
+def toNaive(aware_time):
+    t = datetime.datetime(aware_time.year, aware_time.month, aware_time.day, aware_time.hour, aware_time.minute, aware_time.second)
     return t
 
+def fromUtcStr(time_str):
+    i = time_str.find('+')
+    if i >= 0:
+        s1 = time_str[0:i]
+        s2 = time_str[i:]
+        s = s1 + s2.replace(':', '')
+    else:
+        s = time_str
+    t = datetime.datetime.strptime(s, '%Y-%m-%d %H:%M:%S%z')
+    return t
+
+def toDateTimeList(str_list, format):
+    out = []
+    for s in str_list:
+        t = fromUtcStr(s)
+        out.append(t)
+    return out
+    
 def Now():
     t = datetime.datetime.now()
     return t
