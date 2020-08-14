@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import sys
-sys.path.append("../common")
-sys.path.append("../XM")
-sys.path.append("../private")
 import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '../private'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../XM'))
+
+
 
 import numpy as np
 import pandas as pd
