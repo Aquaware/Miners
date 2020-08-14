@@ -3,6 +3,7 @@ import sys
 sys.path.append("../common")
 sys.path.append("../XM")
 sys.path.append("../private")
+import os
 
 import numpy as np
 import pandas as pd
@@ -196,19 +197,27 @@ def evaluate(should_save):
         t += DeltaDay(1)
     server.close()
     
+    header = 'No, BuyTh, SellTh, StopProfit, StopLos, Profit, Drawdown'
+    path = './evaluation.csv'
+    if os.path.exists(path):
+        file = open(path, 'a')
+    else:
+        file = open(path, 'w')
+        file.write(header + '\n')
+    
     num = 1
-    out = []
-    for buy_threshold in range(20000, 500001, 5000):
-        for sell_threshold in range(-20000, -500001, -5000):
+    for buy_threshold in range(20000, 100001, 5000):
+        for sell_threshold in range(-20000, -100001, -5000):
             for stop_profit in range(50, 601, 50):
                 for stop_loss in range(50, 301, 50):
+                    if stop_loss >= stop_profit:
+                        continue
                     param = [buy_threshold, sell_threshold, stop_profit, stop_loss]
                     profit, drawdown = analyze('DJI-M5', ts_list, param, should_save)
-                    out.append([num, buy_threshold, sell_threshold, stop_profit, stop_loss, profit, drawdown])
+                    s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(stop_profit) + ',' + str(stop_loss) + ',' +str(profit) + ',' + str(drawdown)
+                    file.write(s + '\n')
                     num += 1
-    df = pd.DataFrame(data=out, columns = ['No', 'BuyTh', 'SellTh', 'StopProfit', 'StopLos', 'Profit', 'Drawdown'])
-    df.to_excel('./evaluation.xls', index=False)
-    
+    file.close()
     return
     
 if __name__ == '__main__':
