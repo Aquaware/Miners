@@ -52,7 +52,7 @@ def breakout(signal, ohlc, param):
     CLOSE = 2
     
     
-    [buy_threshold, sell_threshold, stop_profit_price, stop_loss_price] = param
+    [buy_threshold, sell_threshold, stop_profit, stop_loss, trailing_step] = param
     
     flag = []
     status = 0
@@ -62,15 +62,20 @@ def breakout(signal, ohlc, param):
     
     count = 0
     longOrShort = None
+    trailing = False
     for s, o, h, l, c in zip(signal, ohlc[0], ohlc[1], ohlc[2], ohlc[3]):
         if status == 0:
             if s >= buy_threshold:
+                stop_profit_price = c + stop_profit
+                stop_loss_price = c - stop_loss
                 flag.append(BUY)
                 status = BUY
                 longOrShort = BUY
                 prices.append(c)
                 indices.append(count)
             elif s <= sell_threshold:
+                stop_profit_price = c - stop_profit
+                stop_loss_price = c + stop_loss
                 flag.append(SELL)
                 status = SELL
                 longOrShort = SELL
@@ -80,7 +85,17 @@ def breakout(signal, ohlc, param):
                 flag.append(0)
         elif status == BUY:
             profit = c - prices[0]
-            if profit > stop_profit_price or profit < -stop_loss_price:
+            if c > stop_profit_price:
+                if trailing_step == 0:
+                    prices.append(c)
+                    flag.append(CLOSE)
+                    status = CLOSE
+                    indices.append(count)
+                else:
+                    stop_loss_price = stop_profit_price - trailing_step
+                    stop_profit_price += trailing_step
+                    trailing = True
+            elif c < stop_loss_price:
                 prices.append(c)
                 flag.append(CLOSE)
                 status = CLOSE
@@ -89,17 +104,37 @@ def breakout(signal, ohlc, param):
                 flag.append(0)
         elif status == SELL:
             profit = prices[0] - c
-            if profit > stop_profit_price or profit < -stop_loss_price:
+            if c < stop_profit_price:
+                if trailing_step == 0:
+                    prices.append(c)
+                    flag.append(CLOSE)
+                    status = CLOSE
+                    indices.append(count)
+                else:
+                    stop_loss_price = stop_profit_price + trailing_step
+                    stop_profit_price -= trailing_step
+                    trailing = True
+            elif c > stop_loss_price:
                 prices.append(c)
                 flag.append(CLOSE)
                 status = CLOSE
-                indices.append(count)
+                indices.append(count)        
             else:
                 flag.append(0)
         else:
             flag.append(0)
             
         count += 1
+        
+        
+    if len(prices) == 2:
+        if longOrShort == BUY:
+            profit = prices[1] - prices[0]
+        else:
+            profit = prices[0] - prices[1]
+    else:
+        profit = None
+        
     return (longOrShort, profit, prices, indices, flag)
                 
 def analyze(title, ts_list, breakout_param, should_save):
@@ -173,14 +208,14 @@ def analyze(title, ts_list, breakout_param, should_save):
         ret  = breakout(psum, data_list, breakout_param)
         (longOrShort, profit, prices, indices, flag) = ret
         #print(title, ' ... Profit', profit, 'Prices', prices, '(', indices, ')')
-    
-        if len(prices) == 2:
+        if profit is not None:
             out.append([num, date, longOrShort, profit, prices, indices])
             profit_sum += profit
             total.append(profit_sum)
             
-    print('*', breakout_param, '*    Profit: ', profit_sum)
-    return (profit_sum, np.min(total))  
+    drawdown = np.min(total)
+    print('*', breakout_param, '*    Profit: ', profit_sum, '  DrawDown:', drawdown)
+    return (profit_sum, drawdown)  
    
 def evaluate(should_save):
     now = Now()
@@ -208,17 +243,18 @@ def evaluate(should_save):
         file.write(header + '\n')
     
     num = 1
-    for buy_threshold in range(20000, 100001, 5000):
-        for sell_threshold in range(-20000, -100001, -5000):
+    for buy_threshold in range(10000, 50001, 2000):
+        for sell_threshold in range(-10000, -50001, -2000):
             for stop_profit in range(50, 601, 50):
                 for stop_loss in range(50, 301, 50):
-                    if stop_loss >= stop_profit:
-                        continue
-                    param = [buy_threshold, sell_threshold, stop_profit, stop_loss]
-                    profit, drawdown = analyze('DJI-M5', ts_list, param, should_save)
-                    s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(stop_profit) + ',' + str(stop_loss) + ',' +str(profit) + ',' + str(drawdown)
-                    file.write(s + '\n')
-                    num += 1
+                    for trailing_step in range(0, 100, 10):
+                        if stop_loss >= stop_profit:
+                            continue
+                        param = [buy_threshold, sell_threshold, stop_profit, stop_loss, trailing_step]
+                        profit, drawdown = analyze('DJI-M5', ts_list, param, should_save)
+                        s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(stop_profit) + ',' + str(stop_loss) + ',' +str(profit) + ',' + str(drawdown)
+                        file.write(s + '\n')
+                        num += 1
     file.close()
     return
     
