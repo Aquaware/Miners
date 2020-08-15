@@ -79,7 +79,10 @@ class CandleChart:
             
         w = self.length / 50000 * bar_width
         candlestick_ohlc(self.ax, data, width=w, colorup=self.color_up, colordown=self.color_down)
-        pass
+        self.ax.xaxis_date()
+        self.ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
+
+        return
     
     def setTitle(self, title, xlabel, ylabel):
         self.ax.set_title(title)
@@ -106,11 +109,18 @@ class CandleChart:
             y0 = d / (top - bottom)
             d = yrange[1] - bottom
             y1 = d / (top - bottom)
+        else:
+            y0 = yrange[0]
+            y1 = yrange[1]
         self.ax.axvspan(xrange[0], xrange[1], y0, y1, color = color(color_index), alpha = alpha)
+        self.ax.xaxis_date()
+        self.ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
         pass
     
     def point(self, point, marker, color, alpha, size):
         self.ax.scatter(point[0], point[1], s = size , alpha = alpha, marker= marker, c = color)
+        self.ax.xaxis_date()
+        self.ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
         pass
     
     def xLimit(self, xrange):
@@ -161,6 +171,20 @@ class CandleChart:
                 c = colors[0]
             y = np.full(self.length, value)
             self.ax.plot(self.time, y, color = c, linewidth=width)
+        pass
+    
+    def vline(self, values, colors, width):
+        for i in range(len(values)):
+            value = values[i]
+            if len(values) == len(colors):
+                c = colors[i]
+            else:
+                c = colors[0]
+            x = np.full(2, value)
+            y = self.ax.get_ylim()
+            self.ax.plot(x, y, color = c, linewidth=width)
+        self.ax.xaxis_date()
+        self.ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
         pass
     
     def text(self, x, y, text, color, size):

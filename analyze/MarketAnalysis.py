@@ -42,17 +42,18 @@ def test1():
     ts = TimeSeries(data, DATA_TYPE_XM, names=OHLCV, index=[1, 2, 3, 4, 5])
     df = ts.toDataFrame()
     df.to_csv('./dji_M1.csv', index=False)
-    
     server.close()
     
     
-def breakout(signal, ohlc, param):
+def breakout(signal, ts, thresholds, stops):
     BUY = 1
     SELL = -1
     CLOSE = 2
     
-    
-    [buy_threshold, sell_threshold, stop_profit, stop_loss, trailing_step] = param
+    ohlcv = ts.dataList(OHLCV)
+    [buy_threshold, sell_threshold] = thresholds
+    level_max = len(stops)
+    level = 0
     
     flag = []
     status = 0
@@ -62,12 +63,12 @@ def breakout(signal, ohlc, param):
     
     count = 0
     longOrShort = None
-    trailing = False
-    for s, o, h, l, c in zip(signal, ohlc[0], ohlc[1], ohlc[2], ohlc[3]):
+    for s, o, h, l, c in zip(signal, ohlcv[0], ohlcv[1], ohlcv[2], ohlcv[3]):
         if status == 0:
+            [stop_profit, stop_loss] = stops[level]
             if s >= buy_threshold:
                 stop_profit_price = c + stop_profit
-                stop_loss_price = c - stop_loss
+                stop_loss_price = c + stop_loss
                 flag.append(BUY)
                 status = BUY
                 longOrShort = BUY
@@ -86,138 +87,158 @@ def breakout(signal, ohlc, param):
         elif status == BUY:
             profit = c - prices[0]
             if c > stop_profit_price:
-                if trailing_step == 0:
-                    prices.append(c)
+                while level < level_max:
+                    [stop_profit, stop_loss] = stops[level]
+                    stop_profit_price = prices[0] + stop_profit
+                    stop_loss_price = prices[0] + stop_loss
+                    if c < stop_profit_price:
+                        break
+                    level += 1
+                if c > stop_profit_price:
                     flag.append(CLOSE)
-                    status = CLOSE
+                    prices.append(c)
                     indices.append(count)
+                    status = CLOSE
                 else:
-                    stop_loss_price = stop_profit_price - trailing_step
-                    stop_profit_price += trailing_step
-                    trailing = True
+                    flag.append(0)
             elif c < stop_loss_price:
                 prices.append(c)
                 flag.append(CLOSE)
                 status = CLOSE
                 indices.append(count)
-            else:
-                flag.append(0)
         elif status == SELL:
-            profit = prices[0] - c
             if c < stop_profit_price:
-                if trailing_step == 0:
-                    prices.append(c)
+                while level < level_max:
+                    [stop_profit, stop_loss] = stops[level]
+                    stop_profit_price = prices[0] - stop_profit
+                    stop_loss_price = prices[0] - stop_loss
+                    if c > stop_profit_price:
+                        break
+                    level += 1
+                if c < stop_profit_price:
                     flag.append(CLOSE)
-                    status = CLOSE
+                    prices.append(c)
                     indices.append(count)
+                    status = CLOSE
                 else:
-                    stop_loss_price = stop_profit_price + trailing_step
-                    stop_profit_price -= trailing_step
-                    trailing = True
+                    flag.append(0)
             elif c > stop_loss_price:
                 prices.append(c)
                 flag.append(CLOSE)
                 status = CLOSE
-                indices.append(count)        
-            else:
-                flag.append(0)
+                indices.append(count)
         else:
             flag.append(0)
-            
         count += 1
         
+    if len(prices) == 0:
+        return None
+    
+    if len(prices) == 1:
+        prices.append(ohlcv[3][-1])    
+        indices.append(len(ohlcv[0]) - 1)
         
-    if len(prices) == 2:
-        if longOrShort == BUY:
-            profit = prices[1] - prices[0]
-        else:
-            profit = prices[0] - prices[1]
+    if longOrShort == BUY:
+        profit = prices[1] - prices[0]
     else:
-        profit = None
-        
+        profit = prices[0] - prices[1]                
     return (longOrShort, profit, prices, indices, flag)
-                
-def analyze(title, ts_list, breakout_param, should_save):
-   
+
+def purchasePower(ts):
+    ohlcv = ts.dataList(OHLCV)
+    power = []
+    psum = []
+    s = 0.0
+    for o, h, l, c, v in zip(ohlcv[0], ohlcv[1], ohlcv[2], ohlcv[3], ohlcv[4]):
+        p = v * (c - o)
+        power.append(p)
+        s += p
+        psum.append(s)
+    return (power, psum)  
+
+def drawGraph(title, ts, date, power, psum, box, breakout_param):
+    op = ts.data('open')
+    cl = ts.data('close')
+    
+    width = ts.length / 8
+    [minvalue, maxvalue] = ts.minmax(OHLC)
+    maxmin = maxvalue - minvalue
+    height1 = maxmin / 100
+    height2 = (np.max(psum) - np.min(psum)) / 50000
+    height = height1 + height2
+    ratio = height2 / height1
+         
+    fig1 = plt.figure(figsize=(width, height))
+    grid = GridSpec(nrows=2, ncols=1, height_ratios=[1, ratio])
+    grid1 = GridSpecFromSubplotSpec(nrows=1, ncols=1, subplot_spec=grid[0, 0])
+    ax1 = fig1.add_subplot(grid1[:, :])
+    grid2 = GridSpecFromSubplotSpec(nrows=1, ncols=1, subplot_spec=grid[1, 0])
+    ax2 = fig1.add_subplot(grid2[:, :]) 
+        
+    graph1 = CandleChart(ax1, ts.time, 'HM')
+    graph1.plotOHLC([op, ts.data('high'), ts.data('low'), cl])
+    title_str = title + '    '  + date.strftime('%Y-%m-%d (%A)') + ' ~   Range:' + "{:.1f}".format(maxmin)
+    graph1.setTitle(title_str, '', '')
+    #graph1.bars(volume, colors, np.max(volume) * 5, 0.01)
+    graph1.grid()
+    
+    graph2 = CandleChart(ax2, ts.time, 'HM')
+    graph2.plot(power, 0, 1)
+    graph2.plot(psum, 1, 1)
+    graph2.drawLegend([{'label': 'Power', 'color':'red'}, {'label': 'PowerSum', 'color':'blue'}], None)
+    graph2.grid()
+    
+    [prices, indices] = box
+    graph2.hline(breakout_param[0:2], ['green', 'red'], 2)
+    if len(prices) == 2:
+        graph1.box([graph1.time[indices[0]], graph1.time[indices[1]]], prices, 0, 0.2)
+        graph1.point([graph1.time[indices[0]], prices[0]], 'o', 'blue', 0.3, 80)
+        graph1.point([graph1.time[indices[1]], prices[1]], 'o', 'orange', 0.3, 80)
+
+        
+    #if should_save:
+    #    path = './output/' + str(num).zfill(5) +  title + '_' + date.strftime('%Y-%m-%d(%A)') + '.png'
+    #    plt.savefig(path)
+    return
+
+
+def simulation(number, title, ts_list, thresholds, stops, should_draw, should_save):
     out = []
     num = 0
     profit_sum = 0.0
     total = []
     for tsvalue in ts_list:
         [date, ts] = tsvalue
-        op = ts.data('open')
-        cl = ts.data('close')
-        volume = ts.data('volume')
-    
         #print('length:', ts.length)
         if ts.length < 30:
             continue
     
-        colors = []
-        power = []
-        psum = []
-        s = 0.0
-        for o, c, v in zip(op, cl, volume):
-            p = v * (c - o)
-            power.append(p)
-            s += p
-            psum.append(s)
-            if c > o:
-                colors.append('green')
-            elif c < o:
-                colors.append('red')
-            else:
-                colors.append('black')
-    
         num += 1
-        width = ts.length / 8
-        [minvalue, maxvalue] = ts.minmax(OHLC)
-        maxmin = maxvalue - minvalue
-        height1 = maxmin / 100
-        height2 = (np.max(psum) - np.min(psum)) / 50000
-        height = height1 + height2
-        ratio = height2 / height1
-         
-        """    
-        fig1 = plt.figure(figsize=(width, height))
-        grid = GridSpec(nrows=2, ncols=1, height_ratios=[1, ratio])
-        grid1 = GridSpecFromSubplotSpec(nrows=1, ncols=1, subplot_spec=grid[0, 0])
-        ax1 = fig1.add_subplot(grid1[:, :])
-        grid2 = GridSpecFromSubplotSpec(nrows=1, ncols=1, subplot_spec=grid[1, 0])
-        ax2 = fig1.add_subplot(grid2[:, :]) 
+        (power, psum) = purchasePower(ts)
+        ret = breakout(psum, ts, thresholds, stops)
+        if ret is None:
+            continue
         
-        graph1 = CandleChart(ax1, ts.time, 'HM')
-        graph1.plotOHLC([op, ts.data('high'), ts.data('low'), cl])
-        title_str = title + '    '  + t0.strftime('%Y-%m-%d (%A)') + ' ~   Range:' + "{:.1f}".format(maxmin)
-        graph1.setTitle(title_str, '', '')
-        graph1.bars(volume, colors, np.max(volume) * 5, 0.01)
-        graph1.grid()
-                             
-        graph2 = CandleChart(ax2, ts.time, 'HM')
-        graph2.plot(power, 0, 1)
-        graph2.plot(psum, 1, 1)
-        graph2.drawLegend([{'label': 'Power', 'color':'red'}, {'label': 'PowerSum', 'color':'blue'}], None)
-        graph2.grid()
-        """
-    
-        if should_save:
-            path = './output/' + str(num).zfill(5) +  title + '_' + date.strftime('%Y-%m-%d(%A)') + '.png'
-            plt.savefig(path)
-        
-        data_list = ts.dataList(OHLC)
-        ret  = breakout(psum, data_list, breakout_param)
         (longOrShort, profit, prices, indices, flag) = ret
         #print(title, ' ... Profit', profit, 'Prices', prices, '(', indices, ')')
-        if profit is not None:
-            out.append([num, date, longOrShort, profit, prices, indices])
-            profit_sum += profit
-            total.append(profit_sum)
+        out.append([num, date, longOrShort, profit, prices, indices])
+        profit_sum += profit
+        total.append(profit_sum)
+
+        if should_draw:
+            drawGraph(title, ts, date, power, psum, [prices, indices], thresholds)
             
+    if should_save:
+        path = './' + str(number).zfill(5) + '_' + title + '.csv'
+        df = pd.DataFrame(out, columns=['No', 'Date', 'Long_Short', 'Profit', 'Price', 'Index'])
+        df.to_csv(path, index=False)
+        
     drawdown = np.min(total)
-    print('*', breakout_param, '*    Profit: ', profit_sum, '  DrawDown:', drawdown)
+    print('*', thresholds, stops, '*    Profit: ', profit_sum, '  DrawDown:', drawdown)
     return (profit_sum, drawdown)  
    
-def evaluate(should_save):
+    
+def dataSource():
     now = Now()
     t = datetime(2019, 3, 1)
     server = MT5Bind('US30Cash')
@@ -233,30 +254,73 @@ def evaluate(should_save):
             ts_list.append([t, ts])
         t += DeltaDay(1)
     server.close()
+    return ts_list    
     
-    header = 'No, BuyTh, SellTh, StopProfit, StopLos, Profit, Drawdown'
+    
+def evaluate1(should_draw, should_save):
+    header = 'No, BuyTh, SellTh, Kind, Profit, Drawdown'
     path = './evaluation.csv'
     if os.path.exists(path):
         file = open(path, 'a')
     else:
         file = open(path, 'w')
         file.write(header + '\n')
+    ts_list = dataSource()
+    
+    stops_list = [[[180, -180]],
+                  [[180, -180], [250, 150], [300, 200], [350, 250], [400, 300], [450, 350], [500, 400]],
+                  [[100, -100], [150, 50], [200, 120], [250, 170], [300, 220], [350, 270], [400, 320], [450, 370], [500, 420]],
+                  [[50, -50], [100, 20], [150, 80], [200, 140], [250, 180], [300, 230], [350, 280], [400, 330], [450, 380], [500, 430]] ]
+    num = 1
+    for buy_threshold in range(10000, 30001, 1000):
+        for sell_threshold in range(-10000, -30001, -1000):
+            k = 1
+            for stops in stops_list:
+                profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold], stops, should_draw, should_save)
+                s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(k) + ',' + str(profit) + ',' + str(drawdown)
+                file.write(s + '\n')
+                k += 1
+                num += 1
+    file.close()
+    print('*** All Done ***')
+    return
+
+def evaluate2(should_draw, should_save):
+    header = 'No, BuyTh, SellTh, stop_profit, stop_loss, Profit, Drawdown'
+    path = './evaluation2.csv'
+    if os.path.exists(path):
+        file = open(path, 'a')
+    else:
+        file = open(path, 'w')
+        file.write(header + '\n')
+    ts_list = dataSource()
+    
+    stops_list= []
+    for stop in range(100, 310, 20):
+        stops_list.append( [[stop, -stop]] )
     
     num = 1
-    for buy_threshold in range(10000, 50001, 2000):
-        for sell_threshold in range(-10000, -50001, -2000):
-            for stop_profit in range(50, 601, 50):
-                for stop_loss in range(50, 301, 50):
-                    for trailing_step in range(0, 100, 10):
-                        if stop_loss >= stop_profit:
-                            continue
-                        param = [buy_threshold, sell_threshold, stop_profit, stop_loss, trailing_step]
-                        profit, drawdown = analyze('DJI-M5', ts_list, param, should_save)
-                        s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(stop_profit) + ',' + str(stop_loss) + ',' +str(profit) + ',' + str(drawdown)
-                        file.write(s + '\n')
-                        num += 1
+    for buy_threshold in range(10000, 33001, 1000):
+        for sell_threshold in range(-10000, -33001, -1000):
+            k = 1
+            for stops in stops_list:
+                profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold], stops, should_draw, should_save)
+                s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(stops[0][0]) + ',' + str(stops[0][1]) + ',' + str(profit) + ',' + str(drawdown)
+                file.write(s + '\n')
+                k += 1
+                num += 1
     file.close()
+    print('*** All Done ***')
     return
+
     
+def test():
+    ts_list = dataSource()
+    param = [26000, -26000, 100, 100, 0]
+    profit, drawdown = simulation(1, 'DJI-M5', ts_list[0:5], param, True, False)
+    print(profit, drawdown)
+    return
+                        
 if __name__ == '__main__':
-    evaluate(False)
+    evaluate2(False, False)
+    #test()
