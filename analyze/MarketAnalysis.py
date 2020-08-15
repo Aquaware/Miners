@@ -235,7 +235,7 @@ def evaluate(should_save):
     server.close()
     
     header = 'No, BuyTh, SellTh, StopProfit, StopLos, Profit, Drawdown'
-    path = './evaluation.csv'
+    path = './evaluation1.csv'
     if os.path.exists(path):
         file = open(path, 'a')
     else:
@@ -243,12 +243,12 @@ def evaluate(should_save):
         file.write(header + '\n')
     
     num = 1
-    for buy_threshold in range(10000, 50001, 2000):
-        for sell_threshold in range(-10000, -50001, -2000):
-            for stop_profit in range(50, 601, 50):
-                for stop_loss in range(50, 301, 50):
-                    for trailing_step in range(0, 100, 10):
-                        if stop_loss >= stop_profit:
+    for buy_threshold in range(10000, 30001, 2000):
+        for sell_threshold in range(-10000, -30001, -2000):
+            for stop_profit in range(20, 501, 20):
+                for stop_loss in range(20, 251, 20):
+                    for trailing_step in range(0, 1, 10):
+                        if stop_loss > stop_profit:
                             continue
                         param = [buy_threshold, sell_threshold, stop_profit, stop_loss, trailing_step]
                         profit, drawdown = analyze('DJI-M5', ts_list, param, should_save)
