@@ -130,6 +130,12 @@ class CandleChart:
         self.ax.set_ylim(yrange[0], yrange[1])
         pass
     
+    def xRange(self):
+        return self.ax.get_xlim()
+    
+    def yRange(self):
+        return self.ax.get_ylim()
+    
     def drawLegend(self, lines, markers):
         elements = []
         if markers is not None:
@@ -189,6 +195,9 @@ class CandleChart:
     
     def text(self, x, y, text, color, size):
         self.ax.text(x, y, text, color = color, size = size)
+        self.twin_ax.xaxis_date()
+        self.twin_ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
+        return
             
     def bars(self, values, colors, limit, width):
         if len(values) != self.length or len(colors) != self.length:
