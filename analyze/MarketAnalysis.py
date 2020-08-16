@@ -45,7 +45,7 @@ def test1():
     server.close()
     
     
-def breakout(signal, ts, thresholds, stops):
+def breakout(signal, ts, param, stops):
     BUY = 1
     SELL = -1
     CLOSE = 2
@@ -54,9 +54,12 @@ def breakout(signal, ts, thresholds, stops):
     #print(date)
     
     ohlcv = ts.dataList(OHLCV)
-    [buy_threshold, sell_threshold] = thresholds
+    [buy_threshold, sell_threshold, ma_window] = param
     level_max = len(stops)
     level = 0
+    
+    ma = Filters.movingAverage2(signal, ma_window)
+    #dif = Filters.dif(ma, 5)
     
     flag = []
     status = 0
@@ -64,9 +67,12 @@ def breakout(signal, ts, thresholds, stops):
     indices = []
     profit = 0
     
-    count = 0
+    count = -1
     longOrShort = None
-    for s, o, h, l, c in zip(signal, ohlcv[0], ohlcv[1], ohlcv[2], ohlcv[3]):
+    for t, s, o, h, l, c in zip(ts.time, ma, ohlcv[0], ohlcv[1], ohlcv[2], ohlcv[3]):
+        count += 1
+        if t.hour <= 20 and t.hour >= 8:
+            continue
         if status == 0:
             [stop_profit, stop_loss] = stops[level]
             if s >= buy_threshold:
@@ -132,7 +138,7 @@ def breakout(signal, ts, thresholds, stops):
                 indices.append(count)
         else:
             flag.append(0)
-        count += 1
+        
         
     if len(prices) == 0:
         return None
@@ -159,9 +165,11 @@ def purchasePower(ts):
         psum.append(s)
     return (power, psum)  
 
-def drawGraph(title, ts, date, power, psum, result, breakout_param):
+def drawGraph(title, ts, date, power, psum, result, param):
     op = ts.data('open')
     cl = ts.data('close')
+    
+    [buy_threshold, sell_threshold, ma_window] = param
     
     width = ts.length / 8
     [minvalue, maxvalue] = ts.minmax(OHLC)
@@ -185,14 +193,17 @@ def drawGraph(title, ts, date, power, psum, result, breakout_param):
     #graph1.bars(volume, colors, np.max(volume) * 5, 0.01)
     graph1.grid()
     
+    ma = Filters.movingAverage2(psum, ma_window)
+    dif = Filters.dif(ma, 5)
     graph2 = CandleChart(ax2, ts.time, 'HM')
-    graph2.plot(power, 0, 1)
-    graph2.plot(psum, 1, 1)
-    graph2.drawLegend([{'label': 'Power', 'color':'red'}, {'label': 'PowerSum', 'color':'blue'}], None)
+    graph2.plot(psum, 0, 1)
+    graph2.plot(ma, 1, 1)
+    graph2.plot(dif, 7, 3)
+    graph2.drawLegend([{'label': 'PowerSum', 'color':'red'}, {'label': 'MA', 'color':'blue'}, {'label': 'DIF', 'color':'green'}], None)
     graph2.grid()
     
     [profit, prices, indices] = result
-    graph2.hline(breakout_param[0:2], ['green', 'red'], 2)
+    graph2.hline(param[0:2], ['orange', 'violet'], 0.5)
     if len(prices) == 2:
         graph1.box([graph1.time[indices[0]], graph1.time[indices[1]]], prices, 0, 0.2)
         graph1.point([graph1.time[indices[0]], prices[0]], 'o', 'blue', 0.7, 80)
@@ -210,7 +221,7 @@ def drawGraph(title, ts, date, power, psum, result, breakout_param):
     return
 
 
-def simulation(number, title, ts_list, thresholds, stops, should_draw, should_save):
+def simulation(number, title, ts_list, param, stops, should_draw, should_save):
     out = []
     num = 0
     profit_sum = 0.0
@@ -223,7 +234,7 @@ def simulation(number, title, ts_list, thresholds, stops, should_draw, should_sa
     
         num += 1
         (power, psum) = purchasePower(ts)
-        ret = breakout(psum, ts, thresholds, stops)
+        ret = breakout(psum, ts, param, stops)
         if ret is None:
             continue
         
@@ -234,7 +245,7 @@ def simulation(number, title, ts_list, thresholds, stops, should_draw, should_sa
         total.append(profit_sum)
 
         if should_draw:
-            drawGraph(title, ts, date, power, psum, [profit, prices, indices], thresholds)
+            drawGraph(title, ts, date, power, psum, [profit, prices, indices], param)
             
     if should_save:
         path = './' + str(number).zfill(5) + '_' + title + '.csv'
@@ -242,19 +253,19 @@ def simulation(number, title, ts_list, thresholds, stops, should_draw, should_sa
         df.to_csv(path, index=False)
         
     drawdown = np.min(total)
-    print('*', thresholds, stops, '*    Profit: ', profit_sum, '  DrawDown:', drawdown)
+    print('*', param, stops, '*    Profit: ', profit_sum, '  DrawDown:', drawdown)
     return (profit_sum, drawdown)  
    
     
 def dataSource():
     now = Now()
     begin1 = datetime(2019, 3, 1)
-    end1 = datetime(2019, 12, 30)
+    end1 = datetime(2020, 2, 28)
     begin2 = datetime(2020, 1, 1)
     server = MT5Bind('US30Cash')
     ts_list = []
     t = begin1
-    while t <= now:
+    while t <= end1:
         t0 = jstTime(t.year, t.month, t.day, 19, 0)
         tmp = t0 + DeltaDay(1)
         t1 = jstTime(tmp.year, tmp.month, tmp.day, 5, 30)
@@ -299,8 +310,8 @@ def evaluate1(should_draw, should_save):
     return
 
 def evaluate2(should_draw, should_save):
-    header = 'No, BuyTh, SellTh, stop_profit, stop_loss, Profit, Drawdown'
-    path = './evaluation2.csv'
+    header = 'No, BuyTh, SellTh, stop_profit, stop_loss, MA_window, Profit, Drawdown'
+    path = './evaluation.csv'
     if os.path.exists(path):
         file = open(path, 'a')
     else:
@@ -309,20 +320,22 @@ def evaluate2(should_draw, should_save):
     ts_list = dataSource()
     
     stops_list= []
-    for a in range(50, 310, 50):
-        for b in range(50, 310, 50): 
-            stops_list.append( [[a, -b]] )
+    for a in range(50, 210, 50):
+        for b in range(50, 210, 50):
+            if a > b:
+                stops_list.append( [[a, -b]] )
     
     num = 1
-    for buy_threshold in range(10000, 32001, 2000):
-        for sell_threshold in range(-10000, -32001, -2000):
-            k = 1
-            for stops in stops_list:
-                profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold], stops, should_draw, should_save)
-                s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(stops[0][0]) + ',' + str(stops[0][1]) + ',' + str(profit) + ',' + str(drawdown)
-                file.write(s + '\n')
-                k += 1
-                num += 1
+    for buy_threshold in range(10000, 32001, 1000):
+        for sell_threshold in range(-10000, -32001, -1000):
+            for ma in range(3, 16, 2):
+                k = 1
+                for stops in stops_list:
+                    profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold, ma], stops, should_draw, should_save)
+                    s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(ma) + ',' + str(stops[0][0]) + ',' + str(stops[0][1]) + ',' + str(profit) + ',' + str(drawdown)
+                    file.write(s + '\n')
+                    k += 1
+                    num += 1
     file.close()
     print('*** All Done ***')
     return
@@ -330,8 +343,9 @@ def evaluate2(should_draw, should_save):
     
 def test():
     ts_list = dataSource()
-    param = [13000, -30000]
-    stops = [[20, -100]]
+    param = [23000, -26000]
+    #stops = [[100, -100], [150, 90], [200, 140], [250, 190]]
+    stops = [[200, -100]]
     profit, drawdown = simulation(1, 'DJI-M5', ts_list, param, stops, True, True)
     print(profit, drawdown)
     return

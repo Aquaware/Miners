@@ -263,7 +263,22 @@ def movingAverage(vector, window):
     for i in range(half, n - half):
         d = vector[i - half: i - half + window]
         out[i] = np.mean(d)
-    return out
+    return out.tolist()
+
+def movingAverage2(vector, window):
+    n = len(vector)
+    out = np.full(n, np.nan)
+    for i in range(window - 1, n):
+        d = vector[i - window + 1: i]
+        out[i] = np.mean(d)
+    return out.tolist()
+
+def dif(vector, distance):
+    n = len(vector)
+    out = np.full(n, np.nan)
+    for i in range(distance - 1, n):
+        out[i] = vector[i] - vector[i - distance + 1] 
+    return out.tolist() 
 
 def ranking(values):
     d = pd.Series(values)
