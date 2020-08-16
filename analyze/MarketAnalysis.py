@@ -75,7 +75,7 @@ def breakout(signal, ts, param, stops):
             continue
         if status == 0:
             [stop_profit, stop_loss] = stops[level]
-            if s >= buy_threshold:
+            if s >= buy_threshold and (c - o) > 10.0:
                 stop_profit_price = c + stop_profit
                 stop_loss_price = c + stop_loss
                 flag.append(BUY)
@@ -83,7 +83,7 @@ def breakout(signal, ts, param, stops):
                 longOrShort = BUY
                 prices.append(c)
                 indices.append(count)
-            elif s <= sell_threshold:
+            elif s <= sell_threshold and (c - o) < -10.0:
                 stop_profit_price = c - stop_profit
                 stop_loss_price = c - stop_loss
                 flag.append(SELL)
@@ -197,13 +197,13 @@ def drawGraph(title, ts, date, power, psum, result, param):
     dif = Filters.dif(ma, 5)
     graph2 = CandleChart(ax2, ts.time, 'HM')
     graph2.plot(psum, 0, 1)
-    graph2.plot(ma, 1, 1)
-    graph2.plot(dif, 7, 3)
-    graph2.drawLegend([{'label': 'PowerSum', 'color':'red'}, {'label': 'MA', 'color':'blue'}, {'label': 'DIF', 'color':'green'}], None)
+    graph2.plot(ma, 1, 2)
+    #graph2.plot(dif, 7, 3)
+    graph2.drawLegend([{'label': 'PurchasePower', 'color':'red'}, {'label': 'MA', 'color':'blue'}], None)
     graph2.grid()
     
     [profit, prices, indices] = result
-    graph2.hline(param[0:2], ['orange', 'violet'], 0.5)
+    graph2.hline(param[0:2], ['orange', 'violet'], 2)
     if len(prices) == 2:
         graph1.box([graph1.time[indices[0]], graph1.time[indices[1]]], prices, 0, 0.2)
         graph1.point([graph1.time[indices[0]], prices[0]], 'o', 'blue', 0.7, 80)
@@ -222,10 +222,13 @@ def drawGraph(title, ts, date, power, psum, result, param):
 
 
 def simulation(number, title, ts_list, param, stops, should_draw, should_save):
+    [buy_threshold, sell_threshold, ma_window] = param
+    print (title, 'Buy threshold: ', buy_threshold, 'Sell threshold: ', sell_threshold,  'MA window: ', ma_window, 'StopProfit: ', stops[0][0], 'StopLoss: ', stops[0][1])
+    
     out = []
     num = 0
     profit_sum = 0.0
-    total = []
+    equity = []
     for tsvalue in ts_list:
         [date, ts] = tsvalue
         #print('length:', ts.length)
@@ -242,7 +245,7 @@ def simulation(number, title, ts_list, param, stops, should_draw, should_save):
         #print(title, ' ... Profit', profit, 'Prices', prices, '(', indices, ')')
         out.append([num, date, longOrShort, profit, prices, indices])
         profit_sum += profit
-        total.append(profit_sum)
+        equity.append(profit_sum)
 
         if should_draw:
             drawGraph(title, ts, date, power, psum, [profit, prices, indices], param)
@@ -252,9 +255,9 @@ def simulation(number, title, ts_list, param, stops, should_draw, should_save):
         df = pd.DataFrame(out, columns=['No', 'Date', 'Long_Short', 'Profit', 'Price', 'Index'])
         df.to_csv(path, index=False)
         
-    drawdown = np.min(total)
+    drawdown = np.min(equity)
     print('*', param, stops, '*    Profit: ', profit_sum, '  DrawDown:', drawdown)
-    return (profit_sum, drawdown)  
+    return (equity, profit_sum, drawdown)  
    
     
 def dataSource():
@@ -300,7 +303,7 @@ def evaluate1(should_draw, should_save):
         for sell_threshold in range(-10000, -30001, -1000):
             k = 1
             for stops in stops_list:
-                profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold], stops, should_draw, should_save)
+                equity, profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold], stops, should_draw, should_save)
                 s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(k) + ',' + str(profit) + ',' + str(drawdown)
                 file.write(s + '\n')
                 k += 1
@@ -310,8 +313,8 @@ def evaluate1(should_draw, should_save):
     return
 
 def evaluate2(should_draw, should_save):
-    header = 'No, BuyTh, SellTh, stop_profit, stop_loss, MA_window, Profit, Drawdown'
-    path = './evaluation.csv'
+    header = 'No, BuyTh, SellTh, ma_window, stop_profit, stop_loss, Profit, Drawdown'
+    path = './evaluation3.csv'
     if os.path.exists(path):
         file = open(path, 'a')
     else:
@@ -320,18 +323,18 @@ def evaluate2(should_draw, should_save):
     ts_list = dataSource()
     
     stops_list= []
-    for a in range(50, 210, 50):
-        for b in range(50, 210, 50):
+    for a in range(40, 410, 20):
+        for b in range(40, 410, 20):
             if a > b:
                 stops_list.append( [[a, -b]] )
     
     num = 1
-    for buy_threshold in range(10000, 32001, 1000):
-        for sell_threshold in range(-10000, -32001, -1000):
-            for ma in range(3, 16, 2):
+    for buy_threshold in range(10000, 30001, 5000):
+        for sell_threshold in range(-10000, -30001, -5000):
+            for ma in [1, 3, 5, 7, 9, 11]:
                 k = 1
                 for stops in stops_list:
-                    profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold, ma], stops, should_draw, should_save)
+                    equity, profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold, ma], stops, should_draw, should_save)
                     s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(ma) + ',' + str(stops[0][0]) + ',' + str(stops[0][1]) + ',' + str(profit) + ',' + str(drawdown)
                     file.write(s + '\n')
                     k += 1
@@ -343,13 +346,18 @@ def evaluate2(should_draw, should_save):
     
 def test():
     ts_list = dataSource()
-    param = [23000, -26000]
+    param = [10000, -30000, 3]
     #stops = [[100, -100], [150, 90], [200, 140], [250, 190]]
-    stops = [[200, -100]]
-    profit, drawdown = simulation(1, 'DJI-M5', ts_list, param, stops, True, True)
+    stops = [[220, -200]]
+    equity, profit, drawdown = simulation(1, 'DJI-M5', ts_list, param, stops, True, True)
+    fig, ax = makeFig(1, 1, (15, 5))
+    graph = Graph(ax)
+    prop = {'color':'green', 'style':'solid', 'width':1}
+    graph.plot(range(len(equity)), equity, prop)
+    graph.setTitle('Equity Curve', '', '')
     print(profit, drawdown)
     return
                         
 if __name__ == '__main__':
-    evaluate2(False, False)
-    #test()
+    #evaluate2(False, False)
+    test()
