@@ -1,0 +1,30 @@
+<html>
+<head>
+  <title>Flask Test</title>
+  <link rel ="stylesheet" href="/static/css/style.css">
+  <link rel ="stylesheet" href="/static/css/bootstrap.min.css">
+  <script type="text/javascript" src="{{ url_for('static', filename='js/d3.v3.min.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/dataSource.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/Chart.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/Filters.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+    <div class="row">
+        Market
+        <input type="text" id="market" name="market" value = "US30Cash"></input>
+        Timeframe:
+        <input type="text" id="timeframe" name="timeframe" value="M1"></input>
+        <button  onclick="begin()">Begin</button>
+        <button  onclick="test()">Test</button>
+      </div>
+        <div id = "canvas-wrapper">
+            <canvas id = "canvas1"></canvas>
+        </div>
+        {% block content %}
+        {% endblock %}
+    </div>
+    </div>
+
+</body>
+</html>
