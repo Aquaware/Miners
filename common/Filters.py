@@ -257,6 +257,9 @@ def integration(vector):
     return out
 
 def movingAverage(vector, window):
+    if window == 1:
+        return vector
+    
     half = int(window / 2)
     n = len(vector)
     out = np.full(n, np.nan)
@@ -266,6 +269,9 @@ def movingAverage(vector, window):
     return out.tolist()
 
 def movingAverage2(vector, window):
+    if window == 1:
+        return vector
+    
     n = len(vector)
     out = np.full(n, np.nan)
     for i in range(window - 1, n):
