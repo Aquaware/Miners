@@ -1,15 +1,70 @@
 # -*- coding: utf-8 -*-
 #
 # Created by Ikuo Kudo  18 August, 2020
-
+import pygame
 import numpy as np
 from datetime import datetime, timedelta
+import matplotlib.colors
+import matplotlib.cm
+
 
 MINUTE = 'M';
 HOUR = 'H';
 DAY = 'D';
 
+def rgbColor(name, alpha=1.0):
+    rgb = matplotlib.colors.to_rgb(name.lower())
+    return (rgb[0] * 255, rgb[1] * 255, rgb[2] * 255, alpha * 255)
 
+def color(style, value):
+    color_map = {'spring':matplotlib.cm.spring,
+                 'summer':matplotlib.cm.summer,
+                 'autumn':matplotlib.cm.autumn,
+                 'winter':matplotlib.cm.winter,
+                 'copper':matplotlib.cm.copper,
+                 'plasma':matplotlib.cm.plasma,
+                 'magma':matplotlib.cm.magma,
+                 'cividis':matplotlib.cm.cividis,
+                 'hsv':matplotlib.cm.hsv}
+    cm = color_map[style.lower()]
+    c = cm(value)
+    return (c[0] * 255, c[1] * 255, c[2] * 255)
+
+def line(context, points, color, alpha=1.0, linewidth=1):
+    if type(color) is str:
+        c = rgbColor(color.lower(), alpha=alpha)
+    else:
+        c = color
+    pygame.draw.line(context, c, points[0], points[1]) #, int(linewidth))
+    return
+    
+def rect(context, point, size, color, alpha=1.0, linewidth=1):
+    if type(color) is str:
+        c = rgbColor(color.lower(), alpha=alpha)
+    else:
+        c = color
+    pygame.draw.rect(context, c, point + size) #, int(linewidth))
+    return
+        
+def text(context, point, text, color, alpha=1.0, font_size=24):
+    if type(color) is str:
+        c = rgbColor(color.lower(), alpha=alpha)
+    else:
+        c = color
+    font = pygame.font.Font(None, font_size)
+    t = font.render(text, True, c)
+    context.blit(t, point)
+    return
+        
+def loadImage(path):
+    image = pygame.image.load(path).convert_alpha()
+    return image
+    
+def image(context, point, image):
+    rect = image.get_rect().move(point[0], point[1])
+    context.blit(image, rect)
+    return image
+    
 
 def minmaxOfArray(array):
     if len(array) == 0:

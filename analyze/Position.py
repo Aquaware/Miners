@@ -12,7 +12,15 @@ TRAILING = 2
 FINISH = 3
 
 class Position:
-    
+    """
+        No trailing Stop
+        stops = [ [(profit), (losscut)]]
+        
+        Trailing Stop
+        stops = [ [(initial profit), (initial losscut) ],
+                  [ (second profit),  (second losscut) ],
+                  [  (delta profit),    (delta loscut) ] ]
+    """
     def __init__(self, index, open_price, is_long, stops):
         self.open_index = index
         self.open_price = open_price
@@ -25,17 +33,17 @@ class Position:
             self.trailing = True
             
         if is_long:
-            self.stop_profit_price = open_price  + stops[0][0]
+            self.take_profit_price = open_price  + stops[0][0]
             self.stop_loss_price = open_price + stops[0][1]
         else:
-            self.stop_profit_price = open_price - stops[0][0]
+            self.take_profit_price = open_price - stops[0][0]
             self.stop_loss_price = open_price - stops[0][1]
             
         self.state = INITIAL
         pass
     
     def currentStopPrice(self):
-        return [self.stop_profit_price, self.stop_loss_price]
+        return [self.take_profit_price, self.stop_loss_price]
                 
     def update(self, index, values):
         if self.state == FINISH:
@@ -76,14 +84,14 @@ class Position:
         maxvalue = np.max(values)        
 
         if self.is_long:
-            if self.stop_profit_price <= maxvalue:
-                self.close_price = self.stop_profit_price
+            if self.take_profit_price <= maxvalue:
+                self.close_price = self.take_profit_price
                 self.close_index = index
                 self.state = FINISH
                 return True
         else:
-            if self.stop_profit_price >= minvalue:
-                self.close_price = self.stop_profit_price
+            if self.take_profit_price >= minvalue:
+                self.close_price = self.take_profit_price
                 self.close_index = index
                 self.state = FINISH
                 return True
@@ -94,31 +102,31 @@ class Position:
         maxvalue = np.max(values)        
 
         if self.is_long:
-            if self.stop_profit_price >= minvalue:
+            if self.take_profit_price >= minvalue:
                 return
         else:
-            if self.stop_profit_price <= maxvalue:
+            if self.take_profit_price <= maxvalue:
                 return
         
         # update profit
         
         if self.state == INITIAL:
             if self.is_long:
-                self.stop_profit_price = self.open_price + self.stops[1][0]
+                self.take_profit_price = self.open_price + self.stops[1][0]
                 self.stop_loss_price  = self.open_price + self.stops[1][1]
             else:
-                self.stop_profit_price = self.open_price - self.stops[1][0]
+                self.take_profit_price = self.open_price - self.stops[1][0]
                 self.stop_loss_price = self.open_price - self.stops[1][1]
             self.state = TRAILING
         elif self.state == TRAILING:
             if self.is_long:
-                while self.stop_profit_price <= maxvalue:
-                    self.stop_profit_price += self.stops[2][0]
-                    self.stop_loss_price = self.stop_profit_price + self.stops[2][1]
+                while self.take_profit_price <= maxvalue:
+                    self.take_profit_price += self.stops[2][0]
+                    self.stop_loss_price = self.take_profit_price + self.stops[2][1]
             else:
-                while self.stop_profit_price >= minvalue:
-                    self.stop_profit_price -= self.stops[2][0]
-                    self.stop_loss_price = self.stop_profit_price - self.stops[2][1]
+                while self.take_profit_price >= minvalue:
+                    self.take_profit_price -= self.stops[2][0]
+                    self.stop_loss_price = self.take_profit_price - self.stops[2][1]
         return
     
 def test1():

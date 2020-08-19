@@ -284,11 +284,11 @@ def dataSource():
     now = Now()
     begin1 = datetime(2019, 3, 1)
     end1 = datetime(2020, 2, 28)
-    begin2 = datetime(2020, 1, 1)
+    begin2 = datetime(2020, 4, 1)
     server = MT5Bind('US30Cash')
     ts_list = []
     t = begin1
-    while t <= end1:
+    while t <= now:
         t0 = jstTime(t.year, t.month, t.day, 19, 0)
         tmp = t0 + DeltaDay(1)
         t1 = jstTime(tmp.year, tmp.month, tmp.day, 5, 30)
@@ -367,15 +367,15 @@ def evaluate2(should_draw, should_save):
     
 def test():
     ts_list = dataSource()
-    param = [25000, -15000, 7, 1]
+    param = [25000, -25000, 7, 1]
     #stops = [[100, -100], [150, 90], [200, 140], [250, 190]]
-    stops = [[400, -350]]
+    stops = [[300, -150]]
     equity, profit, drawdown = simulation(1, 'DJI-M5', ts_list, param, stops, True, True)
     fig, ax = makeFig(1, 1, (15, 5))
     graph = Graph(ax)
     prop = {'color':'green', 'style':'solid', 'width':1}
     graph.plot(range(len(equity)), equity, prop)
-    graph.setTitle('Equity Curve', '', '')
+    graph.setTitle('DJI Day Trade Equity Curve Profit: $' + str(profit) + ' Drawdown: $' + str(drawdown), '', 'US$')
     print(profit, drawdown)
     return
                         
