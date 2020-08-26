@@ -51,6 +51,9 @@ def breakout(signal, ts, param, stops):
     CLOSE = 2
     END = 3
     
+    BAND_IN = 0
+    BAND_UPPER = 1
+    BAND_LOWER = -1
     date = ts.time[0]
     #print(date)
     
@@ -71,20 +74,38 @@ def breakout(signal, ts, param, stops):
     count = -1
     longOrShort = None
     prices = []
-    for t, s, o, h, l, c in zip(ts.time, signal, ohlcv[0], ohlcv[1], ohlcv[2], ohlcv[3]):
+    
+    if ma_window > 1:
+        source = ma
+    else:
+        source = signal
+        
+    signal_state = BAND_IN
+    for t, s, o, h, l, c in zip(ts.time, source, ohlcv[0], ohlcv[1], ohlcv[2], ohlcv[3]):
         count += 1
         #if t.hour <= 20 and t.hour >= 8:
         #    continue
         
         
-        if len(matches) >= limit:
+        # チェック取引回数リミット
+        if len(matches) > limit:
             status = END
             flag.append(0)
             continue
             
+        # エントリ信号チェック
+        triggered = False
+        if s >= buy_threshold and signal_state == BAND_IN:
+            signal_state = BAND_UPPER
+            triggered = True
+        elif s <= sell_threshold and signal_state == BAND_IN:
+            signal_state = BAND_LOWER
+            triggered = True
+            
         if status == 0:
+            # エントリ
             [stop_profit, stop_loss] = stops[level]
-            if s >= buy_threshold and (c - o) > 10.0:
+            if triggered and signal_state == BAND_UPPER and (c - o) > 10.0:
                 stop_profit_price = c + stop_profit
                 stop_loss_price = c + stop_loss
                 flag.append(BUY)
@@ -92,7 +113,7 @@ def breakout(signal, ts, param, stops):
                 longOrShort = BUY
                 prices = [c]
                 indices = [count]
-            elif s <= sell_threshold and (c - o) < -10.0:
+            elif triggered and signal_state == BAND_LOWER and (c - o) < -10.0:
                 stop_profit_price = c - stop_profit
                 stop_loss_price = c - stop_loss
                 flag.append(SELL)
@@ -253,7 +274,7 @@ def simulation(number, title, ts_list, param, stops, should_draw, should_save):
     for tsvalue in ts_list:
         [date, ts] = tsvalue
         #print('length:', ts.length)
-        if ts.length < 100:
+        if ts.length < 10:
             continue
     
         num += 1
@@ -284,10 +305,10 @@ def dataSource():
     now = Now()
     begin1 = datetime(2019, 3, 1)
     end1 = datetime(2020, 2, 28)
-    begin2 = datetime(2020, 4, 1)
+    begin2 = datetime(2020, 8, 20)
     server = MT5Bind('US30Cash')
     ts_list = []
-    t = begin1
+    t = begin2
     while t <= now:
         t0 = jstTime(t.year, t.month, t.day, 19, 0)
         tmp = t0 + DeltaDay(1)
@@ -333,7 +354,7 @@ def evaluate1(should_draw, should_save):
     return
 
 def evaluate2(should_draw, should_save):
-    header = 'No, BuyTh, SellTh, ma_window, stop_profit, stop_loss, Profit, Drawdown'
+    header = 'No, BuyTh, SellTh, ma_window, stop_profit, stop_loss, limit, Profit, Drawdown'
     path = './evaluation5.csv'
     if os.path.exists(path):
         file = open(path, 'a')
@@ -349,14 +370,14 @@ def evaluate2(should_draw, should_save):
                 stops_list.append( [[a, -b]] )
     
     num = 1
-    limit = 1
+    limit = 3
     for buy_threshold in range(10000, 30001, 5000):
         for sell_threshold in range(-10000, -30001, -5000):
-            for ma in [1]:
+            for ma in [1, 3, 5, 7]:
                 k = 1
                 for stops in stops_list:
                     equity, profit, drawdown = simulation(num, 'DJI-M5', ts_list, [buy_threshold, sell_threshold, ma, limit], stops, should_draw, should_save)
-                    s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(ma) + ',' + str(stops[0][0]) + ',' + str(stops[0][1]) + ',' + str(profit) + ',' + str(drawdown)
+                    s = str(num) + ',' + str(buy_threshold) + ',' + str(sell_threshold) + ',' + str(ma) + ',' + str(stops[0][0]) + ',' + str(stops[0][1]) + ',' + str(limit) + ',' + str(profit) + ',' + str(drawdown)
                     file.write(s + '\n')
                     k += 1
                     num += 1
@@ -367,9 +388,9 @@ def evaluate2(should_draw, should_save):
     
 def test():
     ts_list = dataSource()
-    param = [25000, -25000, 7, 1]
+    param = [10000, -10000, 1, 5]
     #stops = [[100, -100], [150, 90], [200, 140], [250, 190]]
-    stops = [[300, -150]]
+    stops = [[100, -50]]
     equity, profit, drawdown = simulation(1, 'DJI-M5', ts_list, param, stops, True, True)
     fig, ax = makeFig(1, 1, (15, 5))
     graph = Graph(ax)

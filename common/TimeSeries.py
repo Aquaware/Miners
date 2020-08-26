@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from CalendarTime import DTime, DeltaHour, DeltaDay, toNaive, toDateTimeList
+from CalendarTime import DTime, DeltaHour, DeltaDay, toNaive, toAware, toDateTimeList
 import numpy as np
 import pandas as pd
 
@@ -36,11 +36,18 @@ class TimeSeries:
                     value.append(d[i])
                 values.append(value)
                 dic[name] = value
-            
+        array = []
+        n = len(time)
+        for i in range(n):
+            d = [time[i]]
+            for j in range(len(names)):
+                d.append(values[j][i])
+            array.append(d)
         self.time = time
         self.values = values
         self.dic = dic
-        self.length = len(time)
+        self.values_in_time = array
+        self.length = n
         self.names = names
         return
     
@@ -76,8 +83,10 @@ class TimeSeries:
         return df
     
     def timeRangeFilter(self, begin_time, end_time):
-        begin_time = toNaive(begin_time)
-        end_time = toNaive(end_time)
+        if begin_time is not None:
+            begin_time = toAware(begin_time)
+        if end_time is not None:
+            end_time = toAware(end_time)
         
         time = []
         values = []
@@ -90,15 +99,17 @@ class TimeSeries:
         n1 = len(self.time)
         n2 = len(self.values)
         
-        for j in range(self.size):
+        values = {}
+        for j in range(len(self.names)):
             array = []     
-            for i in range(self.length):
+            for i in range(len(self.time)):
                 if self.time[i] >= begin_time and self.time[i] <= end_time:
                     if j == 0:
                         time.append(self.time[i])
                     array.append(self.values[j][i])
-            values.append(array)
-        return TimeSeries(time, values, names=self.names)
+            values[self.names[j]] = array
+        values[TIME] = time
+        return TimeSeries(values, DATA_TYPE_PANDAS, names=self.names)
 
     def valueWithIndices(self, indices):
         out = []

@@ -1,17 +1,34 @@
 # -*- coding: utf-8 -*-
 #
 # Created by Ikuo Kudo  18 August, 2020
+
 import numpy as np
-from utils import line, text, rect, rgbColor, number2Str, date2Str, niceRange, niceTimeRange
-from datetime import datetime
+from utils import line, text, rect, rgbColor,  date2Str, niceRange, niceTimeRange
+from datetime import datetime, timedelta
 
 LINEAR = 'linear'
 BAR = 'bar'
 DATETIME = 'datetime'
 
-class SCale:
+def parseTimeframe(timeframe):
+    unit = timeframe[0:1]
+    figure = int(timeframe[1:])
+    if unit == 'M':
+        minutes = figure
+    elif unit == 'H':
+        minutes = figure * 60
+    elif unit == 'D':
+        minutes = figure * 24 * 60
+    return [figure, unit, minutes]
     
-    def __init__(self, domain, value_range, scale_type, time, timeframe):
+def timeframe2timedelta(timeframe):
+    figure, unit, minutes = parseTimeframe(timeframe)
+    delta = timedelta(Minutes=minutes)
+    return delta
+
+class Scale:
+    
+    def __init__(self, domain, value_range, scale_type=LINEAR, time=None, timeframe=None):
         self.domain = domain
         self.value_range = value_range
         self.scale_type = scale_type
@@ -37,7 +54,6 @@ class SCale:
         else:
             self.time = None
             self.timeframe = None
-        
     
     def pos(self, value):
         if self.scale_type == LINEAR or self.scale_type == BAR:
@@ -90,7 +106,7 @@ class SCale:
      
 # -----    
     
-class CandleStick:
+class Candle:
     
     def __init__(self, context, index, time, open, high, low, close, show_length, prop):
         self.context = context
@@ -102,7 +118,6 @@ class CandleStick:
         self.close = close
         self.show_length = show_length
         self.prop = prop
-        
         self.positive_color = 'green'
         self.nagative_color = 'red'
         pass
@@ -154,19 +169,6 @@ class Axis:
             self.time = time
             self.timeframe = self.parseTimeframe(timeframe)
         pass
-        
-
-    def parseTimeframe(self, timeframe):
-        unit = timeframe[0:1]
-        figure = int(timeframe[1:])
-        if unit == 'M':
-            minutes = figure
-        elif unit == 'H':
-            minutes = figure * 60
-        elif unit == 'D':
-            minutes = figure * 24 * 60
-        return [figure, unit, minutes]
-    
 
     def draw(self, context):
         color  = "black"
@@ -205,7 +207,7 @@ class Axis:
                 line(context, [value, self.level[0]], [value, self.level[1]])
                 s = [None, None]
                 if self.scale.scale_type == LINEAR:
-                    s = [number2Str(v), ""]
+                    s = [str(v).zfill(3), ""]
                 elif self.scale.type == BAR:
                     if v[1] is not None:
                         s = date2Str(v[1], self.timeframe)
@@ -235,221 +237,128 @@ class Axis:
         
 class Graph:
     
-    def __init__(self, context, timescale, scales):
+    def __init__(self, context, time_scale, scales):
         self.context = context
-        self.timescale = timescale
+        self.time_scale = time_scale
         self.scales = scales
         pass
-
-    def updateScaleDomain(self, index, domain):
-        old_scale = self.scales[index]
-        scale = Scale(domain, old_scale.value_range, old_scale.scale_type)
-        self.scales[index] = scale
     
-
     def draw(self, index, graphicObject):
-        graphicObject.draw(self.context, self.timeScale, self.scales[index])
+        graphicObject.draw(self.context, self.time_scale, self.scales[index])
 
     def drawAxis(self):
         time = self.time_scale.time
-        timeframe = this.timescale.timeframe;
-        for i in range(len(scales)):
-            scale = self.scales[i]
-            xAxis = Axis(self.timescale, scale.value_range, 5, 2, True, time, timeframe)
+        timeframe = self.time_scale.timeframe;
+        for scale in self.scales:
+            xAxis = Axis(self.time_scale, scale.value_range, 5, 2, True, time, timeframe)
             xAxis.draw(self.context)
-            yAxis = Axis(scale, self.timescale.value_range, 5, 2, False);
+            yAxis = Axis(scale, self.time_scale.value_range, 5, 2, False);
             yAxis.draw(self.context)
             
-class Chart:
-    def __init__(self, context, canvas_size, chart_size, draw):
+class Canvas:
+    def __init__(self, context, canvas_size, chart_margin):
         self.context = context
-        self.canvas_size = canvas_size
-        self.width = chart_size[0]
-        self.height = chart_size[1]
-        self.margin = chart_size[2]
-        self.timeframe = None;
-        self.show_length = 30;
+        self.width = canvas_size[0]
+        self.height = canvas_size[1]
+        self.margin_left = chart_margin[0]
+        self.margin_right = chart_margin[1]
+        self.margin_top = chart_margin[2]
+        self.margin_bottom = chart_margin[3]        
+        self.chart_origin = [self.margin_left, self.margin_top]
+        self.chart_width = self.width - self.margin_left - self.margin_right
+        self.chart_heigt = self.height - self.margin_top - self.marign.bottom
         pass
 
-    def setBarNumber(self, number):
-        self.show_length = number
-        self.update()
-        return
-
-    def draw(name, tohlcv, timeframe):
-        self.name = name;
-        self.tohlcv = tohlcv
-        self.timeframe = timeframe
-        self.render()
-    
-    def createGraph(self, data, minmax):
+    def drawGraph(self, title, tohlcv, timeframe, bar_num, minmax):
         bar_left_margin = 5
         bar_right_margin = 10
-        if data is None:
-            return
-        if len(data) == 0:
+        if len(tohlcv) == 0:
             return
 
-        length = len(data)
-        time = data[0]
-        time_scale = Scale([-bar_left_margin, length + bar_right_margin], [this.margin.left, this.width - this.margin.right], "bartime", time, this.timeframe);
-        height = self.height - self.margin.bottom - self.margin.top;
-        y = self.margin.top
-        scales = [];
-        padding = 50;
-        for (let i = 0; i < this.graphHeights.length; i++) {
-            let rate = this.graphHeights[i];
-            let h = rate * height;
-            if (i == 0) {
-                let scale = new Scale(minmax, [y + h, y]);
-                scales.push(scale);
-            } else {
-                let scale = new Scale([0, 1], [y + h, y + padding]);
-                scales.push(scale);
-            }
-            y += h;
-        }
-        let graph = new Graph(this.context, timeScale, scales);
-        return graph;
-    }
-
-    render() {
-        if (!this.tohlc) {
-            return;
-        }
-        let end = this.tohlc.length - 1;
-        let begin = end - this.showLength + 1;
-        let data = slice(this.tohlc, begin, end);
-        if (!data) {
-            return;
-        }
-        //this.currentIndex = this.showLength - data.length;
-        this.graph = this.createGraph(data, minmax(data, 100));
-        this.context.clearRect(0, 0, this.width, this.height);
-        let candles = []
-        let prop = {"color": "green", "opacity": 0.5};
+        time, ohlc, volume = self.sliceData(tohlcv, bar_num)
+        time_scale = Scale([-bar_left_margin, bar_num + bar_right_margin],
+                           [self.chart_origin[0], self.width - self.margin_right],
+                           scale_type=BAR,
+                           time=time,
+                           timeframe=timeframe)
+        h = self.height - self.margin.bottom - self.margin.top
+        y = self.margin_top
+        scale = Scale(minmax, [y + self.chart_height, y])
+        graph = Graph(self.context, time_scale, scale)
         
-        for (var i = 0; i < data.length; i++){
-            let value = data[i];
-            if (value) {
-                let candle = new Candle(i, value.time, value.open, value.high, value.low, value.close, this.showLength, prop);
-                candles.push(candle);
-                this.graph.draw(0, candle);
-            }
-        }
-        //let time = keyListOfJson(data, "time");
-        this.candles = candles;
-        this.drawTitle(this.name + ' [' + this.timeframe + ']', {});
-        //this.drawXtitle("Time", {});
-
-        this.graph.drawAxis();
-        
-        if (candles.length > 0) {
-            this.graph.drawCursor(0, candles[candles.length - 1]);
-        }
-        if (this.crossPoint) {
-            let index = this.graph.isInner(this.crossPoint);
-            if (index == 0) {
-                this.graph.drawCross(0, this.crossPoint, candles);
-            }
-        }
-
-        this.drawMA(20);
-        this.drawRSI(14);
-    }
-
-    drawPoints(points, prop) {
-        let width = 10;
-        let height = 10;
-        for(let p of points) {
-            let point = new Square(this.context, this.xScale, this.yScale);
-            point.draw(p[0], p[1], width, height, prop);
-        }
-    }
-
-    drawTitle(title, prop) {
-        this.context.font = "20px Arial";
-        this.context.textAlign = "left";
-        this.context.textBaseline = "top";
-        this.context.fillStyle = "#444444";
-        this.context.fillRect(this.margin.left, this.margin.top, 160, 30);
-        this.context.fillStyle = "#ffffff";
-        this.context.fillText(title, this.margin.left + 5, this.margin.top + 5);
-        this.context.globalAlpha = 1.0;
-        
-    }
-
-    drawXtitle(title, prop) {
-        this.context.textAlign = "center";
-        this.context.textBaseline = "top";
-        this.context.globalAlpha = 1.0;
-        this.context.fillText(title, this.canvas.width / 2, this.height - 50);
-    }
-
-    eventControl(){
-        this.canvas.onmousemove = e => {
-            let rect = this.canvas.getBoundingClientRect();
-            let point = [e.clientX - rect.left, e.clientY - rect.top];
-            this.updateCurorPoint(point);
-        };
-    }
-
-    updateCurorPoint(point) {
-        this.crossPoint = point;
-        for (let i = 0; i < this.graph.scales.length; i++) {
-            let index = this.graph.isInner(point);
-            if (index == 0) {
-                this.crossPoint = point;
-                break;
-            }
-        } 
-    }
-
-    drawMA(windowWidth) {
-        var close = []
-        for (let v of this.tohlc) {
-            close.push(v.close);
-        }
-        let ma0 = MA(close, windowWidth);
-        let end = this.tohlc.length - 1;
-        let begin = end - this.showLength + 1;
-        let ma = slice(ma0, begin, end);
-
-        var points = [];
-        for (let i = 0; i < ma.length; i++) {
-            let value = ma[i];
-            if (value) {
-                points.push([i, value]);
-            }
-        }
-
-        let lines = new PolyLine(points, {opacity: 0.5, lineColor: "red", lineWidth: 2.0});
-        this.graph.draw(0, lines);
-    }
-
-    drawRSI(windowWidth) {
-        var close = []
-        for (let v of this.tohlc) {
-            close.push(v.close);
-        }
-        let rsi0 = RSI(close, windowWidth);
-        let end = this.tohlc.length - 1;
-        let begin = end - this.showLength + 1;
-        let rsi = slice(rsi0, begin, end);
-        var points = [];
-        for (let i = 0; i < rsi.length; i++) {
-            let value = rsi[i];
-            if (value) {
-                points.push([i, value]);
-            }
-        }
-        let lines = new PolyLine(points, {opacity: 0.5, lineColor: "blue", lineWidth: 2.0});
-        let domain = minmaxOfArray(rsi);
-        this.graph.updateScaleDomain(1, domain);
-        this.graph.draw(1, lines);
-    }
-}
-
-
-
+        self.render(time, ohlc)
+        return graph
+            
+    def sliceData(self, tohlcv, timeframe, size):
+        time = []
+        ohlc = []
+        volume = []
+        n = len(tohlcv)
+        for i in range(size):
+            if i < n:
+                t = tohlcv[0][i]
+                time.append(tohlcv[0][i])
+                ohlc.append([tohlcv[1][i], tohlcv[2][i], tohlcv[3][i], tohlcv[4][i]])
+                volume.append(tohlcv[5][i])
+            else:
+                t += timeframe2timedelta(timeframe)
+                time.append(t)
+                ohlc.append(None)
+                volume.append(None)
+        return (time, ohlc, volume)
     
+    def render(self, time, ohlc_list):
+        candles = []
+        prop = {"color": "green", "opacity": 0.5}
+        n = len(ohlc_list)
+        for i in range(n):
+            t = time[i]
+            ohlc = ohlc_list[i]
+            if ohlc is not None:
+                candle = Candle(i, t, ohlc, prop)
+                candles.append(candle)
+                self.graph.draw(0, candle)
+        self.candles = candles
+        self.drawTitle(self.name + ' [' + self.timeframe + ']', {})
+        self.graph.drawAxis()
+
+# -----
+def test(ts):
+    import pygame
+    pygame.display.set_caption('Test')
+    success, failure = pygame.init()
+    print("Initializing pygame: {0} success and {1} failure.".format(success, failure))
+    window_size = [1280, 800]
+    context = pygame.display.set_mode(window_size)
+    clock = pygame.time.Clock()
+    context.fill(rgbColor('white'))
+    pygame.event.pump()
+    loop = True
+    while(loop):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                loop = False
+                break
+        render(context, window_size)
+        pygame.display.update()
+        pygame.time.delay(60)
+    pygame.quit()
+    return
+    
+def render(context, window_size, ts):
+    
+    canvas = Canvas(context, window_size, [50, 50, 50, 50])
+    canvas.drawGraph('DJI')
+    
+    line(context, [(0,0), (100, 100)], 'red', alpha= 0.5)
+    rect(context, (50, 100), (10, 60), 'blue', alpha=0.6)
+    text(context, (200, 100), 'Great', 'green', alpha=0.1)
+    return
+
+if __name__ == "__main__":
+    import pandas as pd
+    from TimeSeries import TimeSeries, DATA_TYPE_PANDAS, OHLCV
+    df = pd.read_csv('./dji_M5.csv')
+    ts0 = TimeSeries(df, DATA_TYPE_PANDAS, names=OHLCV)
+    ts = ts0.timeRangeFilter(datetime(2019, 8, 6, 1, 0), None)
+    test(ts)  

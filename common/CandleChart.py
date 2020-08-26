@@ -7,7 +7,8 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
-from datetime import datetime 
+from datetime import datetime
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 #from pandas.plotting import register_matplotlib_converters
 #register_matplotlib_converters()
@@ -25,6 +26,29 @@ def makeFig(rows, cols, size):
     fig, ax = plt.subplots(rows, cols, figsize=(size[0], size[1]))
     return (fig, ax)
 
+def gridFig(width, heights):
+    rows = len(heights)
+    height = 0
+    for h in heights:
+        height += h
+        
+    ratios = []
+    for i in range(rows):
+        if i == 0:
+            ratio = 1.0
+        else:
+            ratio = heights[i] / heights[0]
+        ratios.append(ratio)
+    
+    axes = []
+    fig = plt.figure(figsize=(width, height))
+    grids = GridSpec(nrows=rows, ncols=1, height_ratios=ratios)
+    for i in range(rows):
+        grid = GridSpecFromSubplotSpec(nrows=1, ncols=1, subplot_spec=grids[i, 0])
+        ax = fig.add_subplot(grid[:, :])
+        axes.append(ax)
+    return (fig, axes)    
+    
 def color(index):
     colors = [ mcolors.CSS4_COLORS['red' ], mcolors.CSS4_COLORS['blue'], mcolors.CSS4_COLORS['green'],
                mcolors.CSS4_COLORS['magenta' ], mcolors.CSS4_COLORS['pink'], mcolors.CSS4_COLORS['gold' ], mcolors.CSS4_COLORS['orangered'],
@@ -101,6 +125,19 @@ class CandleChart:
         self.ax.xaxis_date()
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter(time_labels[self.time_label_type])) # '%m-%d %H:%M'))
         pass
+    
+    def plotFlag(self, flag, values, props):
+        if len(flag) != len(self.time) or len(values) != len(self.time):
+            return
+        for i in range(len(flag)):
+            for prop in props:
+                if prop['value'] == flag[i]:
+                    marker = prop['marker']
+                    color = prop['color']
+                    alpha = prop['alpha']
+                    size = prop['size']
+                    self.point([self.time[i], values[i]], marker, color, alpha, size)
+        return
     
     def box(self, xrange, yrange, color_index, alpha):
         if yrange is None:

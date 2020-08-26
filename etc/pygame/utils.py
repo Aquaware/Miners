@@ -138,8 +138,8 @@ def date2Str (date, timeframe):
     elif unit == MINUTE:
         format1 = '%H:%M'
         format2 = "%m-%d"
-    str1 = dateFormat(date, format1)
-    str2 = dateFormat(date, format2)
+    str1 = date.strftime(format1)
+    str2 = date.strftime(format2)
     return [str1, str2]
 
 

@@ -5,6 +5,9 @@ from pytz import timezone
 
 zone = timezone('UTC') 
 
+TIME_FORMAT1 = '%Y-%m-%d %H:%M:%S'
+TIME_FORMAT2 = '%Y-%m-%d %H:%M:%S%z'
+
 
 def DeltaMonth(months):
     return relativedelta(months = months)
@@ -34,18 +37,18 @@ def toNaive(aware_time):
     t = datetime.datetime(aware_time.year, aware_time.month, aware_time.day, aware_time.hour, aware_time.minute, aware_time.second)
     return t
 
-def fromUtcStr(time_str):
+def fromUtcStr(time_str, format=TIME_FORMAT2):
     i = time_str.find('+')
     if i >= 0:
         s1 = time_str[0:i]
         s2 = time_str[i:]
         s = s1 + s2.replace(':', '')
     else:
-        s = time_str
-    t = datetime.datetime.strptime(s, '%Y-%m-%d %H:%M:%S%z')
+        s = time_str + '+0900'
+    t = datetime.datetime.strptime(s, format)
     return t
 
-def toDateTimeList(str_list, format):
+def toDateTimeList(str_list):
     out = []
     for s in str_list:
         t = fromUtcStr(s)
